@@ -117,11 +117,16 @@
 
 
        {% if result %}
-		<div class="card bg-dark" style="width: 18rem;">
-		  <img src="{{url_for('static', filename='img.jpg')}}" class="card-img-top" alt="...">
+		<div class="card bg-dark" style="width: 100%; margin-left: 0; margin-top: 40px;">
 		  <div class="card-body">
-			<h5 class="card-title">Recommend Crop for cultivation is:</h5>
-			<p class="card-text">{{ result }}</p>
+			<h5 class="card-title text-success">Recommended Crop for cultivation is:</h5>
+			<p class="card-text h4">{{ result }}</p>
+			
+            {% if advice %}
+            <hr>
+            <h5 class="card-title text-info">✨ AI Agricultural Advice:</h5>
+            <p class="card-text">{{ advice | replace('\n', '<br>') | safe }}</p>
+            {% endif %}
 		  </div>
 		</div>
 	   {% endif %}
