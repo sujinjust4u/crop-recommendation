@@ -14,6 +14,6 @@ docker rm crop-recommendation-container 2>/dev/null || true
 
 # Run the Docker container
 echo "Running the Docker container on port 8080..."
-docker run -d -p 8080:5000 --name crop-recommendation-container -e GEMINI_API_KEY="AIzaSyA41_i64ESFdHL2oQy2VlmqnjEnWB88K3M" crop-recommendation-app
+docker run -d -p 8080:5000 --name crop-recommendation-container -e GEMINI_API_KEY="" crop-recommendation-app
 
 echo "Application is now running at http://localhost:8080"
