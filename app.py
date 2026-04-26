@@ -10,6 +10,14 @@ import google.generativeai as genai
 api_key = os.environ.get("GEMINI_API_KEY")
 if api_key:
     genai.configure(api_key=api_key)
+    try:
+        print("DEBUG: Checking available models...")
+        for m in genai.list_models():
+            if 'generateContent' in m.supported_generation_methods:
+                print(f"DEBUG: Available model: {m.name}")
+    except Exception as e:
+        print(f"DEBUG: Error listing models: {e}")
+
     generation_config = {
         "temperature": 0.7,
         "top_p": 0.95,
@@ -17,7 +25,7 @@ if api_key:
         "max_output_tokens": 1024,
     }
     model_genai = genai.GenerativeModel(
-        model_name="gemini-1.5-flash",
+        model_name="gemini-flash-latest",
         generation_config=generation_config,
     )
 else:
@@ -36,34 +44,29 @@ def index():
 
 @app.route("/predict",methods=['POST'])
 def predict():
-    N = request.form['Nitrogen']
-    P = request.form['Phosporus']
-    K = request.form['Potassium']
-    temp = request.form['Temperature']
-    humidity = request.form['Humidity']
-    ph = request.form['Ph']
-    rainfall = request.form['Rainfall']
+    try:
+        N = float(request.form['Nitrogen'])
+        P = float(request.form['Phosporus'])
+        K = float(request.form['Potassium'])
+        temp = float(request.form['Temperature'])
+        humidity = float(request.form['Humidity'])
+        ph = float(request.form['Ph'])
+        rainfall = float(request.form['Rainfall'])
 
-    feature_list = [N, P, K, temp, humidity, ph, rainfall]
-    single_pred = np.array(feature_list).reshape(1, -1)
+        feature_list = [N, P, K, temp, humidity, ph, rainfall]
+        print(f"DEBUG: Inputs for prediction: {feature_list}")
+        single_pred = np.array(feature_list).reshape(1, -1)
 
-    scaled_features = ms.transform(single_pred)
-    final_features = sc.transform(scaled_features)
-    prediction = model.predict(final_features)
+        scaled_features = ms.transform(single_pred)
+        final_features = sc.transform(scaled_features)
+        prediction = model.predict(final_features)
 
-    crop_dict = {1: "Rice", 2: "Maize", 3: "Jute", 4: "Cotton", 5: "Coconut", 6: "Papaya", 7: "Orange",
-                 8: "Apple", 9: "Muskmelon", 10: "Watermelon", 11: "Grapes", 12: "Mango", 13: "Banana",
-                 14: "Pomegranate", 15: "Lentil", 16: "Blackgram", 17: "Mungbean", 18: "Mothbeans",
-                 19: "Pigeonpeas", 20: "Kidneybeans", 21: "Chickpea", 22: "Coffee"}
-
-    if prediction[0] in crop_dict:
-        crop = crop_dict[prediction[0]]
-        result = "{} is the best crop to be cultivated right there".format(crop)
+        crop = prediction[0]
+        result = "{} is the best crop to be cultivated right there".format(crop.capitalize())
         advice = get_agricultural_advice(crop, N, P, K, temp, humidity, ph, rainfall)
-    else:
-        result = "Sorry, we could not determine the best crop to be cultivated with the provided data."
-        advice = ""
-    return render_template('index.html',result = result, advice = advice)
+        return render_template('index.html',result = result, advice = advice)
+    except Exception as e:
+        return render_template('index.html', result=f"Error: {str(e)}")
 
 def get_agricultural_advice(crop, N, P, K, temp, humidity, ph, rainfall):
     if not model_genai:
@@ -90,19 +93,21 @@ def get_agricultural_advice(crop, N, P, K, temp, humidity, ph, rainfall):
         response = model_genai.generate_content(prompt)
         return response.text
     except Exception as e:
+        if "429" in str(e):
+            return "🌱 AI Advice Tip: Based on your soil data, ensure consistent watering and consider a balanced fertilizer approach. (Note: AI rate limit reached, showing general tip)."
         return f"Error fetching advice: {str(e)}"
 
 @app.route("/api/predict", methods=['POST'])
 def predict_api():
     try:
         data = request.get_json()
-        N = data['Nitrogen']
-        P = data['Phosporus']
-        K = data['Potassium']
-        temp = data['Temperature']
-        humidity = data['Humidity']
-        ph = data['Ph']
-        rainfall = data['Rainfall']
+        N = float(data['Nitrogen'])
+        P = float(data['Phosporus'])
+        K = float(data['Potassium'])
+        temp = float(data['Temperature'])
+        humidity = float(data['Humidity'])
+        ph = float(data['Ph'])
+        rainfall = float(data['Rainfall'])
 
         feature_list = [N, P, K, temp, humidity, ph, rainfall]
         single_pred = np.array(feature_list).reshape(1, -1)
@@ -111,17 +116,9 @@ def predict_api():
         final_features = sc.transform(scaled_features)
         prediction = model.predict(final_features)
 
-        crop_dict = {1: "Rice", 2: "Maize", 3: "Jute", 4: "Cotton", 5: "Coconut", 6: "Papaya", 7: "Orange",
-                     8: "Apple", 9: "Muskmelon", 10: "Watermelon", 11: "Grapes", 12: "Mango", 13: "Banana",
-                     14: "Pomegranate", 15: "Lentil", 16: "Blackgram", 17: "Mungbean", 18: "Mothbeans",
-                     19: "Pigeonpeas", 20: "Kidneybeans", 21: "Chickpea", 22: "Coffee"}
-
-        if prediction[0] in crop_dict:
-            crop = crop_dict[prediction[0]]
-            advice = get_agricultural_advice(crop, N, P, K, temp, humidity, ph, rainfall)
-            return jsonify({"success": True, "crop": crop, "advice": advice})
-        else:
-            return jsonify({"success": False, "error": "Could not determine crop"})
+        crop = prediction[0]
+        advice = get_agricultural_advice(crop, N, P, K, temp, humidity, ph, rainfall)
+        return jsonify({"success": True, "crop": crop, "advice": advice})
     except Exception as e:
         return jsonify({"success": False, "error": str(e)})
 
